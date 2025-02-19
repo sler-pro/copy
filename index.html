@@ -20,7 +20,7 @@
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+        import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJik7EBaHftlsEsrsRdamgih3RBz4W1_s",
@@ -35,7 +35,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const textRef = ref(db, 'text');
+        const textRef = ref(db, 'text/');
 
         function saveText() {
             const inputText = document.getElementById("inputText").value;
@@ -43,7 +43,7 @@
                 alert("テキストを入力してください");
                 return;
             }
-            set(textRef, inputText).then(() => {
+            set(textRef, { content: inputText }).then(() => {
                 alert("保存しました！");
             }).catch((error) => {
                 console.error("エラー: ", error);
@@ -51,16 +51,24 @@
             });
         }
 
-        onValue(textRef, (snapshot) => {
-            if (snapshot.exists()) {
-                document.getElementById("displayText").innerText = snapshot.val();
-            } else {
-                document.getElementById("displayText").innerText = "まだデータがありません";
-            }
-        });
+        function loadText() {
+            onValue(textRef, (snapshot) => {
+                if (snapshot.exists() && snapshot.val().content) {
+                    document.getElementById("displayText").innerText = snapshot.val().content;
+                } else {
+                    document.getElementById("displayText").innerText = "データがありません";
+                }
+            }, (error) => {
+                console.error("データの取得に失敗しました: ", error);
+            });
+        }
 
         function copyToClipboard() {
             const text = document.getElementById("displayText").innerText;
+            if (text === "データがありません") {
+                alert("コピーするテキストがありません");
+                return;
+            }
             navigator.clipboard.writeText(text).then(() => {
                 alert("コピーしました！");
             }).catch((error) => {
@@ -68,6 +76,7 @@
             });
         }
 
+        window.onload = loadText;
         window.saveText = saveText;
         window.copyToClipboard = copyToClipboard;
     </script>
@@ -77,7 +86,7 @@
     <input type="text" id="inputText" placeholder="ここに入力">
     <button onclick="saveText()">保存</button>
     <div class="copy-area">
-        <p id="displayText">まだデータがありません</p>
+        <p id="displayText">データがありません</p>
         <button onclick="copyToClipboard()">コピー</button>
     </div>
 </body>
