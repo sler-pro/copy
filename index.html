@@ -10,17 +10,19 @@
             text-align: center;
             margin: 20px;
         }
-        input, button {
+        .entry {
             margin: 10px;
             padding: 10px;
+            border: 1px solid #ccc;
+            display: inline-block;
         }
-        .copy-area {
-            margin-top: 20px;
+        button {
+            margin: 5px;
         }
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+        import { getDatabase, ref, set, push, remove, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAJik7EBaHftlsEsrsRdamgih3RBz4W1_s",
@@ -35,36 +37,28 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const textRef = ref(db, 'text/');
+        const textRef = ref(db, 'texts/');
 
-        function saveText() {
-            const inputText = document.getElementById("inputText").value;
+        function addEntry() {
+            const newEntryRef = push(textRef);
+            set(newEntryRef, { content: "" });
+        }
+
+        function saveText(entryId) {
+            const inputText = document.getElementById(`input-${entryId}`).value;
             if (inputText.trim() === "") {
                 alert("テキストを入力してください");
                 return;
             }
-            set(textRef, { content: inputText }).then(() => {
-                alert("保存しました！");
-            }).catch((error) => {
-                console.error("エラー: ", error);
-                alert("保存に失敗しました");
-            });
+            set(ref(db, `texts/${entryId}`), { content: inputText });
         }
 
-        function loadText() {
-            onValue(textRef, (snapshot) => {
-                if (snapshot.exists() && snapshot.val().content) {
-                    document.getElementById("displayText").innerText = snapshot.val().content;
-                } else {
-                    document.getElementById("displayText").innerText = "データがありません";
-                }
-            }, (error) => {
-                console.error("データの取得に失敗しました: ", error);
-            });
+        function deleteEntry(entryId) {
+            remove(ref(db, `texts/${entryId}`));
         }
 
-        function copyToClipboard() {
-            const text = document.getElementById("displayText").innerText;
+        function copyToClipboard(entryId) {
+            const text = document.getElementById(`display-${entryId}`).innerText;
             if (text === "データがありません") {
                 alert("コピーするテキストがありません");
                 return;
@@ -76,18 +70,40 @@
             });
         }
 
-        window.onload = loadText;
+        function loadTexts() {
+            onValue(textRef, (snapshot) => {
+                const container = document.getElementById("entries");
+                container.innerHTML = "";
+                if (snapshot.exists()) {
+                    snapshot.forEach((childSnapshot) => {
+                        const entryId = childSnapshot.key;
+                        const content = childSnapshot.val().content || "";
+                        
+                        const entryDiv = document.createElement("div");
+                        entryDiv.className = "entry";
+                        entryDiv.innerHTML = `
+                            <input type="text" id="input-${entryId}" placeholder="ここに入力" value="${content}">
+                            <button onclick="saveText('${entryId}')">保存</button>
+                            <p id="display-${entryId}">${content || "データがありません"}</p>
+                            <button onclick="copyToClipboard('${entryId}')">コピー</button>
+                            <button onclick="deleteEntry('${entryId}')">削除</button>
+                        `;
+                        container.appendChild(entryDiv);
+                    });
+                }
+            });
+        }
+
+        window.onload = loadTexts;
+        window.addEntry = addEntry;
         window.saveText = saveText;
         window.copyToClipboard = copyToClipboard;
+        window.deleteEntry = deleteEntry;
     </script>
 </head>
 <body>
     <h1>入力＆コピー</h1>
-    <input type="text" id="inputText" placeholder="ここに入力">
-    <button onclick="saveText()">保存</button>
-    <div class="copy-area">
-        <p id="displayText">データがありません</p>
-        <button onclick="copyToClipboard()">コピー</button>
-    </div>
+    <button onclick="addEntry()">＋追加</button>
+    <div id="entries"></div>
 </body>
 </html>
